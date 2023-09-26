@@ -94,14 +94,32 @@ for item in unformatted_sections:
                 pass
             text = text.strip()
 
+            # EDGE CASES
 
-            # now i had to make a choice... either change "St." to Saint everywhere in the original doc
-            # or make a case to handle St. when it's in the source text
+            # handle all the St. James cases
             if source.startswith("Concerning the Epistle of St. James"):
                 source = re.sub(r'\.\d+', '', source)
 
-            # TO-DO: fix the source if it caught the superscript from sentence before it
+            # if the source starts with ”, delete it
+            if source.startswith("”"):
+                source = source[1:]
 
+            # if the source starts with any number and a space, delete it
+            if len(source) > 1:
+                if source[0].isdigit() & source[1].isdigit():
+                    source = source[2:]
+                if source[0].isspace():
+                    source = source[1:]
+
+                # delete period at the end of the source
+                if source[-1] == ".":
+                    source = source[:-1]
+
+            # edge case for one specific commentary
+            # i know hard coding is bad but im sorry but i couldn't figure out a better way to do this
+            if source == "7-8":
+                source = "Sermons 179.7-8"
+                text = text.removesuffix(" Sermons .-.")
 
             # append the result
             if text != "":
