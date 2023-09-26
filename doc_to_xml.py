@@ -87,6 +87,15 @@ for item in unformatted_sections:
             # clean up the text
             text = re.sub(r'\d+', '', commentary)
 
+            # if the source contains a number, it means the end of the text is messed up
+            # so we have to delete the source from the text
+
+            if source.find(r'\d+'):
+                print(source)
+                first_word = source.split(" ")[0]
+                print(first_word)
+                text = text.removesuffix(" " + first_word + " ..")
+
             # ignore ValueError: empty separator
             try:
                 text = text.split(source)[0]
