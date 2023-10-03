@@ -1,145 +1,46 @@
-import json
-import re
 from docx import Document
+from xml.etree.ElementTree import Element, SubElement, tostring, ElementTree
 
-# load doc
-original_document = Document("James.docx")
+def convert_docx_to_xml(docx_path, xml_path):
+    # Load DOCX file
+    doc = Document(docx_path)
 
+    # Create XML root element
+    xml_root = Element("document")
 
-# function takes in a docx file, makes sections based off of where Overview is (to omit it)
-# first item in each list is the chapter and verse with the theme title
-def docx_to_list(doc):
-    overview_reached = False
-    sections = []
-    current_section = []
+    current_section = None
+    previous_bold_content = None
 
+    # Iterate through paragraphs in the DOCX
     for paragraph in doc.paragraphs:
-        if "Overview:" in paragraph.text:
-            if current_section:
-                sections.append(current_section)
-                current_section = []
-            overview_reached = True
-            continue
+        # Iterate through runs in the paragraph
+        for run in paragraph.runs:
+            if run.bold:
+                bold_content = run.text.strip()
 
-        if overview_reached:
-            current_section.append(paragraph.text)
+                # Check if it's a new section or continues the previous one
+                if current_section is None or bold_content != previous_bold_content:
+                    current_section = SubElement(xml_root, "section")
+                    current_run = SubElement(current_section, "run", {"bold": "true"})
+                    current_run.text = bold_content
 
-    if current_section:
-        sections.append(current_section)
+                previous_bold_content = bold_content
+            elif current_section is not None:
+                # If the run is not bold and there's an active section, add the text to the current section
+                current_run.text += run.text
 
-    processed_sections = []
-    for section in sections:
-        for index, paragraph in enumerate(section):
-            if re.match(r"^\d", paragraph):
-                processed_sections.append(section[index:])
-                break
-    return processed_sections
+    # Close the last section if exists
+    if current_section is not None:
+        xml_root.append(current_section)
 
+    # Create an XML tree
+    xml_tree = ElementTree(xml_root)
 
-unformatted_sections = docx_to_list(original_document)
+    # Save the XML file
+    xml_tree.write(xml_path, encoding="utf-8", xml_declaration=True)
 
-text = ""
-chapter = ""
-verse = ""
-author = ""
-source = ""
-result = []
+if __name__ == "__main__":
+    input_docx_path = "James.docx"
+    output_xml_path = "output3.xml"
 
-# for loop to format list into json
-for item in unformatted_sections:
-
-    # Case 1: if the string starts with a digit it means it's a new chapter and verse
-    for string in item:
-        if string[0].isdigit():
-            cur_chap, cur_verse = string.split(":")
-            cur_verse = cur_verse.split()[0]
-
-        # Case 2: if it doesn't start with a digit it means it's a commentary
-        else:
-            # first extract the author and scrap the title
-            title_author = string.split(":")[0]
-            author = re.split(r'[!?\.]', title_author)[-1].strip(" ")
-            commentary = string.split(":")[-1]
-
-            # get rid of the subscript at the end of each commentary
-            while (commentary[-1] != ".") and len(commentary) > 1:
-                commentary = commentary[:-1]
-
-            # the process of getting the source text
-            # in this chunk we split the commentary into sentences and get the last sentence
-            sentences = re.split(r'[.!?]', commentary)
-            last_sentence = sentences[-2].strip() if len(sentences) >= 2 else sentences[0].strip()
-
-            # this while loop checks to see if the last sentence is a digit,
-            # if it is, it means it's part of the source text,
-            # and we have to add it into the source text
-            numbers = ""
-            while last_sentence.isdigit() or last_sentence == "James":
-                if len(last_sentence) > 1:
-                    numbers += sentences.pop()[::-1] + "."
-                else:
-                    numbers += sentences.pop() + "."
-                last_sentence = sentences[-1].strip() if len(sentences) > 0 else ""
-
-            # append the numbers from the end
-            source = last_sentence + numbers[::-1]
-
-            # clean up the text
-            text = re.sub(r'\d+', '', commentary)
-
-            # if the source contains a number, it means the end of the text is messed up
-            # so we have to delete the source from the text
-
-            if source.find(r'\d+'):
-                print(source)
-                first_word = source.split(" ")[0]
-                print(first_word)
-                text = text.removesuffix(" " + first_word + " ..")
-
-            # ignore ValueError: empty separator
-            try:
-                text = text.split(source)[0]
-            except ValueError:
-                pass
-            text = text.strip()
-
-            # EDGE CASES
-
-            # handle all the St. James cases
-            if source.startswith("Concerning the Epistle of St. James"):
-                source = re.sub(r'\.\d+', '', source)
-
-            # if the source starts with ”, delete it
-            if source.startswith("”"):
-                source = source[1:]
-
-            # if the source starts with any number and a space, delete it
-            if len(source) > 1:
-                if source[0].isdigit() & source[1].isdigit():
-                    source = source[2:]
-                if source[0].isspace():
-                    source = source[1:]
-
-                # delete period at the end of the source
-                if source[-1] == ".":
-                    source = source[:-1]
-
-            # edge case for one specific commentary
-            # i know hard coding is bad but im sorry but i couldn't figure out a better way to do this
-            if source == "7-8":
-                source = "Sermons 179.7-8"
-                text = text.removesuffix(" Sermons .-.")
-
-            # append the result
-            if text != "":
-                result.append({
-                    'text': text,
-                    'chapter': cur_chap,
-                    'verse': cur_verse,
-                    'author': author,
-                    'source': source
-                })
-
-        # save as json
-        with open('james.json', 'w') as json_file:
-            json.dump(result, json_file, indent=2)
+    convert_docx_to_xml(input_docx_path, output_xml_path)
