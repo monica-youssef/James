@@ -29,18 +29,8 @@ def convert_docx_to_xml(docx_path, xml_path):
                 # If the run is not bold and there's an active section, add the text to the current section
                 current_run.text += run.text
 
-    # Close the last section if exists
-    if current_section is not None:
-        xml_root.append(current_section)
-
     # Create an XML tree
     xml_tree = ElementTree(xml_root)
 
     # Save the XML file
     xml_tree.write(xml_path, encoding="utf-8", xml_declaration=True)
-
-if __name__ == "__main__":
-    input_docx_path = "James.docx"
-    output_xml_path = "output3.xml"
-
-    convert_docx_to_xml(input_docx_path, output_xml_path)
