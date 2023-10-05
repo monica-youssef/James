@@ -1,3 +1,4 @@
+import json
 import xml
 from lxml import etree
 from doc_to_xml import *
@@ -26,7 +27,7 @@ def parse_xml(xml_path):
     # Iterate through sections
     for section in root.iter('section'):
         # print("Section:")
-        # if the first word of the string is "Overview", dump skip over it
+        # if the first word of the string is "Overview", dump it and kip over it
         if section[0].text.split()[0] == "Overview":
             continue
         #  COLLECT CHAPTER AND VERSE
@@ -44,11 +45,14 @@ def parse_xml(xml_path):
             if title_and_author.__contains__("."):
                 author = title_and_author.split(".")[1]
 
-            # COLLECT TEXT AND SOURCE
+        if len(author) > 1 and author[0] == " ":
+            author = author[1:]
+
+            # COLLECT SOURCE
             # if there is a number at the end drop it because it is a superscript
             commentary_and_source = section[0].text.split(":")[1:]
             commentary_and_source = ":".join(commentary_and_source)
-            commentary_and_source = re.split(r'[!?\.]', commentary_and_source)
+            commentary_and_source = re.split(r'[-!?\.]', commentary_and_source)
             if commentary_and_source[-1].isdigit():
                 commentary_and_source = commentary_and_source[:-1]
 
@@ -64,33 +68,34 @@ def parse_xml(xml_path):
 
             # append the numbers from the end
             source = last_sentence + numbers[::-1]
-            print(source)
-            if len(source) > 1 and not source[0].isalpha():
-                pattern = re.compile(r'^["\d ]+')
-                if pattern.match(source):
-                    source = source[1:]
-            print(source)
 
-        # COLLECT AUTHOR
+            # clean up the source from the beginning
+            # special case for James -- it wasn't including the "Concerning the Epistle of St." part
 
-        # COLLECT AUTHOR
-        # elif
+            if source == " James":
+                source = commentary_and_source[-2][1:] + "." + source
+            while len(source) > 1 and (source[0].isdigit() or source[0] == " " or source[0] == '”'):
+                source = source[1:]
 
-        # if text != "":
-        #     result.append({
-        #         'text': text,
-        #         'chapter': chapter,
-        #         'verse': verse,
-        #         'author': author,
-        #         'source': source
-        #     })
+            # COLLECT TEXT
+            if source != "Concerning the Epistle of St. James":
+                text = "".join(commentary_and_source[:-1]) + "."
+            else:
+                text = "".join(commentary_and_source[:-2]) + "."
 
-        # Iterate through runs within each section
-        # for run in section.iter('run'):
-        #     print(f"{run.text}")
+        if text != "" and source[0] != ":":
+            result.append({
+                'text': text,
+                'chapter': chapter,
+                'verse': verse,
+                'author': author,
+                'source': source
+            })
+
+        # save as json
+        with open('james.json', 'w') as json_file:
+            json.dump(result, json_file, indent=2)
 
 
-if __name__ == "__main__":
-    xml_path = "James_xml_only.xml"
-    sectioned_xml = parse_xml(xml_path)
-    # print(sectioned_xml)
+xml_path = "James_xml_only.xml"
+parse_xml(xml_path)
